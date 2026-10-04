@@ -1,0 +1,1356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Lazy Tacos - Band Management OS</title>
+  
+  <!-- Firebase SDKs for Live Sync -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <style>
+    /* ==========================================================================
+       COLOR PALETTE & CSS VARIABLES (Palette 2: BOLD / FUN / MODERN)
+       Bold Orange: #E04A1D | Ivory: #FAF5E8 | Cobalt: #1C3F80
+       Dark Brown: #241812  | Olive: #7F8752 | Sky Blue: #A3CFE5
+       HK Holiday Neon Pink: #FF2A75
+       ========================================================================== */
+    :root {
+      --c-bg: #241812;          /* Dark Brown base */
+      --c-card: #2E2019;        /* Slightly lighter brown card bg */
+      --c-ivory: #FAF5E8;       /* Ivory text / high contrast */
+      --c-orange: #E04A1D;      /* Bold Orange active/accent */
+      --c-cobalt: #1C3F80;      /* Cobalt Blue buttons/headers */
+      --c-olive: #7F8752;       /* Olive Green success */
+      --c-skyblue: #A3CFE5;     /* Sky Blue tags/subtext */
+      --c-hk-pink: #FF2A75;     /* Neon Pink for HK Public Holidays */
+      --c-gold: #D4AF37;        /* Metallic Gold for Gigs */
+      --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body {
+      background-color: var(--c-bg);
+      color: var(--c-ivory);
+      font-family: var(--font-family);
+      font-size: 16px;
+      line-height: 1.4;
+      padding-bottom: 90px; /* Space for mobile navigation bar */
+    }
+
+    /* --- TOP HEADER & COUNTDOWN BANNER --- */
+    header {
+      background: #19100C;
+      padding: 12px 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      border-bottom: 2px solid #3D2B22;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    }
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .band-title {
+      font-size: 1.25rem;
+      font-weight: 900;
+      color: var(--c-orange);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .header-actions { display: flex; align-items: center; gap: 8px; }
+    .btn-icon-link {
+      background: var(--c-cobalt);
+      color: var(--c-ivory);
+      padding: 6px 10px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .sync-badge {
+      font-size: 0.75rem;
+      padding: 4px 8px;
+      border-radius: 12px;
+      background: #3D2B22;
+      color: var(--c-skyblue);
+      cursor: pointer;
+    }
+
+    /* Countdown Banner */
+    .countdown-banner {
+      background: linear-gradient(90deg, #1C3F80, #E04A1D);
+      color: var(--c-ivory);
+      padding: 8px 12px;
+      font-size: 0.85rem;
+      font-weight: bold;
+      text-align: center;
+      border-radius: 8px;
+      margin-top: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    /* User Selector Bar */
+    .user-selector-bar {
+      background: #1F150F;
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid #3D2B22;
+    }
+    .user-selector-bar label { font-size: 0.85rem; color: var(--c-skyblue); font-weight: bold; }
+    .user-select-dropdown {
+      background: var(--c-cobalt);
+      color: var(--c-ivory);
+      border: 1px solid var(--c-orange);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: bold;
+      flex-grow: 1;
+    }
+
+    /* --- NAVIGATION TABS (Mobile Friendly) --- */
+    .nav-tabs {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #140C08;
+      display: flex;
+      justify-content: space-around;
+      border-top: 2px solid #3D2B22;
+      z-index: 1000;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    .nav-btn {
+      flex: 1;
+      padding: 12px 4px;
+      background: none;
+      border: none;
+      color: #A08C82;
+      font-size: 0.75rem;
+      font-weight: bold;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+    }
+    .nav-btn .icon { font-size: 1.2rem; }
+    .nav-btn.active { color: var(--c-orange); border-top: 3px solid var(--c-orange); background: rgba(224,74,29,0.05); }
+
+    /* --- PAGE CONTAINERS --- */
+    .page { display: none; padding: 16px; max-width: 800px; margin: 0 auto; }
+    .page.active { display: block; }
+
+    .card {
+      background: var(--c-card);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+      border: 1px solid #3D2B22;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    }
+    .card-title {
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: var(--c-ivory);
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* --- BUTTONS & CONTROLS --- */
+    .btn {
+      padding: 10px 16px;
+      border-radius: 8px;
+      border: none;
+      font-weight: bold;
+      font-size: 0.9rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-height: 44px;
+    }
+    .btn-orange { background: var(--c-orange); color: #FFF; }
+    .btn-cobalt { background: var(--c-cobalt); color: #FFF; }
+    .btn-olive { background: var(--c-olive); color: #FFF; }
+    .btn-outline { background: transparent; border: 1px solid #553C30; color: var(--c-ivory); }
+
+    /* ==========================================================================
+       PAGE 1: CALENDAR & PRACTICE SCHEDULER
+       ========================================================================== */
+    .calendar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .month-title { font-size: 1.2rem; font-weight: bold; color: var(--c-ivory); }
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      text-align: center;
+    }
+    .day-name {
+      font-size: 0.75rem;
+      font-weight: bold;
+      color: var(--c-skyblue);
+      padding: 4px 0;
+    }
+    .cal-cell {
+      aspect-ratio: 1;
+      background: #241812;
+      border-radius: 8px;
+      padding: 4px;
+      border: 1px solid #38251B;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      position: relative;
+      min-height: 52px;
+    }
+    .cal-cell.other-month { opacity: 0.3; }
+    .cal-cell.selected { border: 2px solid var(--c-orange); background: rgba(224,74,29,0.15); }
+    .cal-cell .date-num { font-size: 0.9rem; font-weight: bold; }
+    
+    /* Glowing Haze for Available Days */
+    .cal-cell.has-overlap {
+      box-shadow: inset 0 0 8px rgba(224, 74, 29, 0.6);
+      border-color: var(--c-orange);
+    }
+    .cal-cell.full-band {
+      box-shadow: 0 0 10px rgba(127, 135, 82, 0.8);
+      border: 2px solid var(--c-olive);
+      background: rgba(127, 135, 82, 0.2);
+    }
+    
+    /* Neon Pink for HK Public Holidays */
+    .cal-cell.hk-holiday {
+      background: #40061A !important;
+      border: 1.5px solid var(--c-hk-pink) !important;
+    }
+    .cal-cell.hk-holiday .date-num { color: var(--c-hk-pink); font-weight: 900; }
+    .hk-tag {
+      font-size: 0.55rem;
+      background: var(--c-hk-pink);
+      color: #FFF;
+      padding: 1px 3px;
+      border-radius: 3px;
+      font-weight: bold;
+      white-space: nowrap;
+      overflow: hidden;
+      max-width: 100%;
+    }
+
+    /* Metallic Gold Shimmer Show Plate */
+    .gold-show-plate {
+      background: linear-gradient(135deg, #BF953F, #FCF6BA, #B38728, #FBF5B7, #AA771C);
+      color: #111;
+      font-size: 0.65rem;
+      font-weight: bold;
+      padding: 2px 4px;
+      border-radius: 4px;
+      border: 1px solid #FFE58F;
+      width: 100%;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+      position: relative;
+    }
+    .gold-show-plate.confirmed::after {
+      content: '';
+      position: absolute;
+      top: -50%; left: -50%; width: 200%; height: 200%;
+      background: linear-gradient(60deg, rgba(255,255,255,0) 20%, rgba(255,255,255,0.8) 50%, rgba(255,255,255,0) 80%);
+      transform: rotate(30deg);
+      animation: shimmerSweep 3s infinite;
+    }
+    @keyframes shimmerSweep {
+      0% { transform: translateX(-100%) rotate(30deg); }
+      100% { transform: translateX(100%) rotate(30deg); }
+    }
+    .gold-show-plate.tbc {
+      background: transparent;
+      border: 1px dashed #D4AF37;
+      color: #D4AF37;
+    }
+
+    /* Member List Customizer */
+    .member-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .member-pill {
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: bold;
+      color: #FFF;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Condensed Chip UI for Time Slot Selection (Photo Ref 1) */
+    .slots-chip-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .slot-chip {
+      background: var(--c-cobalt);
+      color: var(--c-ivory);
+      border-radius: 20px;
+      padding: 10px 8px;
+      font-size: 0.85rem;
+      font-weight: bold;
+      text-align: center;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      border: 2px solid transparent;
+      min-height: 48px;
+      user-select: none;
+    }
+    /* Green when selected */
+    .slot-chip.selected-green {
+      background: #2ECC71 !important;
+      color: #052B14 !important;
+      border-color: #27AE60;
+    }
+
+    /* Status Selector for Selected Slot */
+    .status-picker-bar {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .status-opt-btn {
+      flex: 1;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #553C30;
+      background: #1F150F;
+      color: var(--c-ivory);
+      font-size: 0.85rem;
+      font-weight: bold;
+      cursor: pointer;
+      text-align: center;
+    }
+    .status-opt-btn.active-firm { background: var(--c-olive); border-color: #A1B06B; }
+    .status-opt-btn.active-tbc { background: var(--c-orange); border-color: #FF7043; }
+    .status-opt-btn.active-subj { background: #D35400; border-color: #F39C12; border-style: dashed; }
+
+    /* Matrix Overlap Visualizer */
+    .overlap-matrix { margin-top: 12px; border-top: 1px solid #3D2B22; padding-top: 12px; }
+    .overlap-hour-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 6px;
+      font-size: 0.8rem;
+    }
+    .overlap-hour-label { width: 60px; font-weight: bold; color: var(--c-skyblue); }
+    .overlap-bars-container { flex-grow: 1; display: flex; gap: 4px; }
+    .member-bar-segment {
+      height: 18px;
+      border-radius: 3px;
+      flex: 1;
+      opacity: 0.2;
+    }
+    .member-bar-segment.firm { opacity: 1.0; }
+    .member-bar-segment.tbc { opacity: 0.8; background-image: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(255,255,255,0.3) 4px, rgba(255,255,255,0.3) 8px); }
+    .member-bar-segment.subj { opacity: 0.6; border: 1px dashed #FFF; }
+
+    /* ==========================================================================
+       PAGES 2a & 2b: PROJECTS (GANTT TIMELINE)
+       ========================================================================== */
+    .project-card {
+      background: #281B15;
+      border-left: 5px solid var(--c-cobalt);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    .project-header { display: flex; justify-content: space-between; align-items: flex-start; }
+    .project-title { font-size: 1.05rem; font-weight: bold; color: var(--c-ivory); }
+    .deadline-badge {
+      font-size: 0.75rem;
+      font-weight: bold;
+      padding: 4px 8px;
+      border-radius: 12px;
+    }
+    .badge-green { background: #27AE60; color: #FFF; }
+    .badge-yellow { background: #F1C40F; color: #000; }
+    .badge-orange { background: #E67E22; color: #FFF; }
+    .badge-red { background: #E74C3C; color: #FFF; }
+    .badge-done { background: #7F8C8D; color: #FFF; }
+
+    .progress-bar-bg {
+      background: #19100C;
+      height: 10px;
+      border-radius: 5px;
+      overflow: hidden;
+      margin: 8px 0;
+    }
+    .progress-bar-fill { height: 100%; background: var(--c-orange); transition: width 0.3s; }
+
+    /* ==========================================================================
+       PAGE 3: PERSONAL PRACTICE & TO-DO (個人工作 / 修練 -> Personal)
+       ========================================================================== */
+    .toggle-group { display: flex; background: #19100C; border-radius: 8px; padding: 4px; margin-bottom: 12px; }
+    .toggle-btn {
+      flex: 1;
+      padding: 8px;
+      border: none;
+      background: none;
+      color: var(--c-skyblue);
+      font-weight: bold;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .toggle-btn.active { background: var(--c-cobalt); color: #FFF; }
+
+    .hashtag-cloud { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+    .hashtag-chip {
+      background: #1F150F;
+      border: 1px solid #553C30;
+      color: var(--c-skyblue);
+      padding: 4px 10px;
+      border-radius: 14px;
+      font-size: 0.8rem;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .hashtag-chip.selected { background: var(--c-orange); color: #FFF; border-color: var(--c-orange); }
+
+    /* Continuous Thread Follow-Ups */
+    .thread-box {
+      background: #1F150F;
+      border-left: 3px solid var(--c-orange);
+      padding: 8px 12px;
+      margin-top: 8px;
+      border-radius: 0 6px 6px 0;
+      font-size: 0.85rem;
+    }
+    .thread-entry { border-bottom: 1px solid #38251B; padding: 4px 0; }
+    .thread-entry:last-child { border-bottom: none; }
+    .thread-time { font-size: 0.7rem; color: #888; }
+
+    /* ==========================================================================
+       MODAL STYLES
+       ========================================================================== */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.8);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      padding: 16px;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal-content {
+      background: var(--c-card);
+      border-radius: 12px;
+      padding: 20px;
+      width: 100%;
+      max-width: 500px;
+      max-height: 90vh;
+      overflow-y: auto;
+      border: 1px solid #553C30;
+    }
+    .form-group { margin-bottom: 12px; }
+    .form-group label { display: block; font-size: 0.85rem; color: var(--c-skyblue); margin-bottom: 4px; font-weight: bold; }
+    .form-control {
+      width: 100%;
+      padding: 10px;
+      background: #19100C;
+      border: 1px solid #553C30;
+      border-radius: 8px;
+      color: var(--c-ivory);
+      font-size: 0.95rem;
+    }
+
+    textarea.form-control { resize: vertical; min-height: 60px; }
+  </style>
+</head>
+<body>
+
+  <!-- TOP HEADER -->
+  <header>
+    <div class="top-bar">
+      <div class="band-title">🎷 LAZY TACOS</div>
+      <div class="header-actions">
+        <!-- Google Drive Quick Link -->
+        <a href="https://drive.google.com/drive/u/3/my-drive" target="_blank" class="btn-icon-link">
+          📁 Drive
+        </a>
+        <div class="sync-badge" onclick="configureFirebase()">
+          ☁️ <span id="syncStatus">Local</span>
+        </div>
+        <button class="btn btn-outline" style="padding:4px 8px; font-size:0.75rem;" onclick="exportData()">💾 Backup</button>
+      </div>
+    </div>
+
+    <!-- Countdown Banner -->
+    <div class="countdown-banner" id="countdownBanner">
+      ⌛ Calculating next show...
+    </div>
+  </header>
+
+  <!-- USER IDENTITY SELECTOR BAR -->
+  <div class="user-selector-bar">
+    <label for="userSelect">👤 I am:</label>
+    <select id="userSelect" class="user-select-dropdown" onchange="changeCurrentUser()">
+      <!-- Populated dynamically -->
+    </select>
+  </div>
+
+  <!-- PAGE 1: PRACTICE SCHEDULER -->
+  <div id="page-practice" class="page active">
+    
+    <!-- Member Management Pill Bar -->
+    <div class="card">
+      <div class="card-title">
+        <span>Band Members</span>
+        <button class="btn btn-outline" style="font-size:0.75rem; padding:4px 8px;" onclick="openMemberModal()">+ Edit Roster</button>
+      </div>
+      <div class="member-pills" id="memberPills"></div>
+    </div>
+
+    <!-- Calendar Card -->
+    <div class="card">
+      <div class="calendar-header">
+        <button class="btn btn-outline" onclick="changeMonth(-1)">◀ Prev</button>
+        <div class="month-title" id="calendarMonthTitle">Month 2026</div>
+        <button class="btn btn-outline" onclick="changeMonth(1)">Next ▶</button>
+      </div>
+
+      <div class="calendar-grid">
+        <div class="day-name">Mon</div><div class="day-name">Tue</div>
+        <div class="day-name">Wed</div><div class="day-name">Thu</div>
+        <div class="day-name">Fri</div><div class="day-name">Sat</div>
+        <div class="day-name">Sun</div>
+      </div>
+      <div class="calendar-grid" id="calendarGrid" style="margin-top:4px;"></div>
+    </div>
+
+    <!-- Day Details & Time Selection -->
+    <div class="card" id="dayDetailCard">
+      <div class="card-title">
+        <span id="selectedDateLabel">Select a date above</span>
+        <span id="holidayTagLabel"></span>
+      </div>
+
+      <!-- Quick Whole Night Toggle for Weekdays -->
+      <div id="weekdayShortcutContainer" style="display:none; margin-bottom:12px;">
+        <button class="btn btn-orange" style="width:100%;" onclick="toggleWholeNight()">
+          🌙 Select Whole Night (19:00 - 24:00)
+        </button>
+      </div>
+
+      <div style="font-size:0.85rem; color:var(--c-skyblue); margin-bottom:6px;">
+        Tap hours to select/deselect availability:
+      </div>
+
+      <!-- Hourly Condensed Chip Selection (Photo Ref 1) -->
+      <div class="slots-chip-grid" id="slotsChipGrid"></div>
+
+      <!-- Status Selection for Active Slot -->
+      <div style="margin-top:12px;">
+        <div style="font-size:0.8rem; color:#AAA; margin-bottom:4px;">Mark Status for Selected Hour(s):</div>
+        <div class="status-picker-bar">
+          <button class="status-opt-btn" onclick="setSlotStatus('FIRM')">✅ Firm</button>
+          <button class="status-opt-btn" onclick="setSlotStatus('TBC')">❓ TBC</button>
+          <button class="status-opt-btn" onclick="setSlotStatus('SUBJ')">⚡ Subj to change</button>
+        </div>
+      </div>
+
+      <!-- Overlap View Visualizer -->
+      <div class="overlap-matrix">
+        <div style="font-size:0.9rem; font-weight:bold; color:var(--c-ivory); margin-bottom:8px;">
+          👥 Band Overlap Availability
+        </div>
+        <div id="overlapBars"></div>
+      </div>
+
+      <!-- Practice Session Agenda / What to Practice -->
+      <div style="margin-top:16px; border-top:1px solid #3D2B22; padding-top:12px;">
+        <label style="font-size:0.85rem; font-weight:bold; color:var(--c-skyblue);">
+          📝 Practice Agenda for this Session:
+        </label>
+        <textarea id="sessionAgendaInput" class="form-control" placeholder="e.g. Song sections, arrangements, or Google Drive audio link..." onchange="saveSessionAgenda()"></textarea>
+      </div>
+    </div>
+
+    <!-- Best Slots Ranking Summary -->
+    <div class="card">
+      <div class="card-title">👑 Best Practice Slots (Top Overlap)</div>
+      <div id="bestSlotsList" style="font-size:0.85rem;">Searching calendar...</div>
+    </div>
+  </div>
+
+  <!-- PAGE 2a: BAND PROJECTS -->
+  <div id="page-band-projects" class="page">
+    <div class="card">
+      <div class="card-title">
+        <span>🎷 Band Projects</span>
+        <button class="btn btn-orange" onclick="openProjectModal('BAND')">+ New Band Project</button>
+      </div>
+      <div id="bandProjectsList"></div>
+    </div>
+  </div>
+
+  <!-- PAGE 2b: PERSONAL PROJECTS & PRACTICE GOALS -->
+  <div id="page-personal" class="page">
+    <!-- Toggle Practice Goals / Quick To-Dos -->
+    <div class="toggle-group">
+      <button class="toggle-btn active" id="toggleGoalBtn" onclick="switchPersonalSubTab('GOALS')">🎯 Practice Goals</button>
+      <button class="toggle-btn" id="toggleTodoBtn" onclick="switchPersonalSubTab('TODOS')">⚡ Quick To-Dos</button>
+    </div>
+
+    <!-- Sub-tab 1: Practice Goals -->
+    <div id="personalGoalsSection">
+      <div class="card">
+        <div class="card-title">
+          <span>Personal Focus Areas</span>
+          <button class="btn btn-cobalt" onclick="openPersonalGoalModal()">+ Add Focus</button>
+        </div>
+        <div id="personalGoalsList"></div>
+      </div>
+    </div>
+
+    <!-- Sub-tab 2: Quick To-Dos -->
+    <div id="personalTodosSection" style="display:none;">
+      <div class="card">
+        <div class="card-title">Quick Tasks (e.g. Upload scores, reply)</div>
+        <div style="display:flex; gap:8px;">
+          <input type="text" id="quickTodoInput" class="form-control" placeholder="Add a quick task...">
+          <button class="btn btn-orange" onclick="addQuickTodo()">Add</button>
+        </div>
+        <div id="quickTodosList" style="margin-top:12px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE 3: TO-DO / REPLIES WITH THREAD FOLLOW-UPS -->
+  <div id="page-todo" class="page">
+    <div class="card">
+      <div class="card-title">📩 Follow-ups & Agency Replies</div>
+      
+      <div class="form-group">
+        <label>Platform:</label>
+        <div class="hashtag-cloud" id="platformPicker">
+          <span class="hashtag-chip selected" onclick="selectPlatform(this, 'WhatsApp')">💬 WhatsApp</span>
+          <span class="hashtag-chip" onclick="selectPlatform(this, 'Instagram')">📸 Instagram</span>
+          <span class="hashtag-chip" onclick="selectPlatform(this, 'Email')">📧 Email</span>
+          <span class="hashtag-chip" onclick="selectPlatform(this, 'Phone')">📞 Phone</span>
+          <span class="hashtag-chip" onclick="selectPlatform(this, 'Other')">🌐 Other</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <input type="text" id="todoPartyInput" class="form-control" placeholder="Whom / Party name (e.g. Blue Note Promoter)">
+      </div>
+
+      <div class="form-group">
+        <textarea id="todoRemarkInput" class="form-control" placeholder="Initial quotation or note..."></textarea>
+      </div>
+
+      <button class="btn btn-orange" style="width:100%;" onclick="addFollowupThread()">+ Create Follow-up Thread</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Active Threads</div>
+      <div id="followupThreadsList"></div>
+    </div>
+  </div>
+
+  <!-- PAGE 4: UPCOMING SHOWS -->
+  <div id="page-shows" class="page">
+    <div class="card">
+      <div class="card-title">
+        <span>🎺 Upcoming Shows</span>
+        <button class="btn btn-orange" onclick="openShowModal()">+ Add Show</button>
+      </div>
+      <div id="showsList"></div>
+    </div>
+  </div>
+
+  <!-- BOTTOM NAVIGATION BAR -->
+  <nav class="nav-tabs">
+    <button class="nav-btn active" onclick="switchPage('practice', this)">
+      <span class="icon">📅</span>Practice
+    </button>
+    <button class="nav-btn" onclick="switchPage('band-projects', this)">
+      <span class="icon">🎷</span>Band Proj
+    </button>
+    <button class="nav-btn" onclick="switchPage('personal', this)">
+      <span class="icon">🎯</span>Personal
+    </button>
+    <button class="nav-btn" onclick="switchPage('todo', this)">
+      <span class="icon">💬</span>Replies
+    </button>
+    <button class="nav-btn" onclick="switchPage('shows', this)">
+      <span class="icon">🎺</span>Shows
+    </button>
+  </nav>
+
+  <!-- ==========================================================================
+     MODALS
+     ========================================================================== -->
+  
+  <!-- Add/Edit Show Modal -->
+  <div class="modal-overlay" id="showModal">
+    <div class="modal-content">
+      <div class="card-title">Add / Edit Show</div>
+      <div class="form-group"><label>Venue / Event Name:</label><input type="text" id="showVenue" class="form-control"></div>
+      <div class="form-group"><label>City:</label><input type="text" id="showCity" class="form-control" value="Hong Kong"></div>
+      <div class="form-group"><label>Date:</label><input type="date" id="showDate" class="form-control"></div>
+      <div class="form-group"><label>Start Time:</label><input type="time" id="showTime" class="form-control" value="20:00"></div>
+      <div class="form-group"><label>Soundcheck Time:</label><input type="time" id="showSoundcheck" class="form-control" value="18:00"></div>
+      <div class="form-group"><label>Band Fee Guarantee ($):</label><input type="number" id="showFee" class="form-control" placeholder="Optional"></div>
+      
+      <div class="form-group">
+        <label>Travel Fee Covered?</label>
+        <select id="showTravelCovered" class="form-control">
+          <option value="No">No</option>
+          <option value="Yes">Yes</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Travel Fee Amount ($):</label><input type="number" id="showTravelAmount" class="form-control" placeholder="0"></div>
+      
+      <div class="form-group">
+        <label>Status:</label>
+        <select id="showStatus" class="form-control">
+          <option value="CONFIRMED">✅ Confirmed (Full Shimmer)</option>
+          <option value="TBC">❓ TBC (Dashed Gold)</option>
+        </select>
+      </div>
+
+      <div style="display:flex; gap:8px; margin-top:16px;">
+        <button class="btn btn-orange" style="flex:1;" onclick="saveShow()">Save Show</button>
+        <button class="btn btn-outline" onclick="closeModal('showModal')">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add/Edit Member Modal -->
+  <div class="modal-overlay" id="memberModal">
+    <div class="modal-content">
+      <div class="card-title">Lazy Tacos Roster</div>
+      <div id="memberEditList"></div>
+      <div style="display:flex; gap:8px; margin-top:12px;">
+        <input type="text" id="newMemberName" class="form-control" placeholder="Member Name (e.g. Alex)">
+        <input type="text" id="newMemberRole" class="form-control" placeholder="Role (e.g. Trumpet)">
+        <button class="btn btn-orange" onclick="addMember()">Add</button>
+      </div>
+      <button class="btn btn-outline" style="width:100%; margin-top:16px;" onclick="closeModal('memberModal')">Done</button>
+    </div>
+  </div>
+
+  <!-- JavaScript Logic -->
+  <script>
+    /* ==========================================================================
+       HONG KONG PUBLIC HOLIDAY DATASET (2024 - 2027)
+       ========================================================================== */
+    const HK_HOLIDAYS = {
+      // 2024
+      "2024-01-01": "New Year's Day", "2024-02-10": "Lunar New Year", "2024-02-12": "Lunar New Year",
+      "2024-02-13": "Lunar New Year", "2024-03-29": "Good Friday", "2024-03-30": "Easter",
+      "2024-04-01": "Easter Monday", "2024-04-04": "Ching Ming", "2024-05-01": "Labour Day",
+      "2024-05-15": "Buddha's Birthday", "2024-06-10": "Tuen Ng", "2024-07-01": "HKSAR Day",
+      "2024-09-18": "Mid-Autumn", "2024-10-01": "National Day", "2024-10-11": "Chung Yeung",
+      "2024-12-25": "Christmas", "2024-12-26": "Boxing Day",
+      // 2025
+      "2025-01-01": "New Year's Day", "2025-01-29": "Lunar New Year", "2025-01-30": "Lunar New Year",
+      "2025-01-31": "Lunar New Year", "2025-04-04": "Ching Ming", "2025-04-18": "Good Friday",
+      "2025-04-19": "Easter", "2025-04-21": "Easter Monday", "2025-05-01": "Labour Day",
+      "2025-05-05": "Buddha's Birthday", "2025-05-31": "Tuen Ng", "2025-07-01": "HKSAR Day",
+      "2025-10-01": "National Day", "2025-10-07": "Mid-Autumn", "2025-10-29": "Chung Yeung",
+      "2025-12-25": "Christmas", "2025-12-26": "Boxing Day",
+      // 2026
+      "2026-01-01": "New Year's Day", "2026-02-17": "Lunar New Year", "2026-02-18": "Lunar New Year",
+      "2026-02-19": "Lunar New Year", "2026-04-03": "Good Friday", "2026-04-04": "Ching Ming",
+      "2026-04-06": "Easter Monday", "2026-05-01": "Labour Day", "2026-05-24": "Buddha's Birthday",
+      "2026-06-19": "Tuen Ng", "2026-07-01": "HKSAR Day", "2026-09-26": "Mid-Autumn",
+      "2026-10-01": "National Day", "2026-10-18": "Chung Yeung", "2026-12-25": "Christmas",
+      "2026-12-26": "Boxing Day"
+    };
+
+    /* ==========================================================================
+       APP STATE & INITIALIZATION
+       ========================================================================== */
+    const DEFAULT_MEMBERS = [
+      { id: 'm1', name: 'Ed', role: 'Keys', color: '#1C3F80' },
+      { id: 'm2', name: 'John', role: 'Bass', color: '#E04A1D' },
+      { id: 'm3', name: 'Sam', role: 'Guitar', color: '#7F8752' },
+      { id: 'm4', name: 'V', role: 'Sax/Clarinet', color: '#A3CFE5' },
+      { id: 'm5', name: 'Léna', role: 'Vocal', color: '#FF2A75' },
+      { id: 'm6', name: 'Dennis', role: 'Drums', color: '#D4AF37' }
+    ];
+
+    let appData = {
+      members: DEFAULT_MEMBERS,
+      currentUser: 'm1',
+      availability: {}, // { "YYYY-MM-DD": { memberId: { hour: "FIRM" | "TBC" | "SUBJ" } } }
+      agendas: {},      // { "YYYY-MM-DD": "text agenda" }
+      shows: [],
+      bandProjects: [],
+      personalGoals: [],
+      quickTodos: [],
+      threads: []
+    };
+
+    let currentDate = new Date();
+    let selectedCalDate = formatDate(new Date());
+    let activeSelectedSlotHour = null;
+    let selectedPlatform = 'WhatsApp';
+
+    // Initialize Application
+    window.onload = function() {
+      loadLocalStorage();
+      populateUserDropdown();
+      renderMemberPills();
+      renderCalendar();
+      renderShows();
+      updateCountdownBanner();
+    };
+
+    /* LocalStorage Backup */
+    function saveState() {
+      localStorage.setItem('lazy_tacos_data', JSON.stringify(appData));
+      updateCountdownBanner();
+    }
+
+    function loadLocalStorage() {
+      const saved = localStorage.getItem('lazy_tacos_data');
+      if (saved) {
+        try { appData = JSON.parse(saved); } catch(e){}
+      }
+    }
+
+    function exportData() {
+      const blob = new Blob([JSON.stringify(appData, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `Lazy_Tacos_Backup_${formatDate(new Date())}.json`;
+      a.click();
+    }
+
+    /* ==========================================================================
+       USER IDENTITY & NAVIGATION
+       ========================================================================== */
+    function populateUserDropdown() {
+      const sel = document.getElementById('userSelect');
+      sel.innerHTML = '';
+      appData.members.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = `${m.name} (${m.role})`;
+        if (m.id === appData.currentUser) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    }
+
+    function changeCurrentUser() {
+      appData.currentUser = document.getElementById('userSelect').value;
+      saveState();
+      renderDayDetails(selectedCalDate);
+    }
+
+    function switchPage(pageId, btnEl) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById(`page-${pageId}`).classList.add('active');
+      btnEl.classList.add('active');
+
+      if (pageId === 'shows') renderShows();
+      if (pageId === 'band-projects') renderBandProjects();
+      if (pageId === 'personal') renderPersonalSection();
+      if (pageId === 'todo') renderThreads();
+    }
+
+    /* ==========================================================================
+       CALENDAR & SCHEDULER LOGIC
+       ========================================================================== */
+    function renderCalendar() {
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+      
+      const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+      document.getElementById('calendarMonthTitle').textContent = `${monthNames[month]} ${year}`;
+
+      const grid = document.getElementById('calendarGrid');
+      grid.innerHTML = '';
+
+      const firstDay = new Date(year, month, 1).getDay();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      
+      // Offset for Monday start
+      let startOffset = firstDay - 1;
+      if (startOffset === -1) startOffset = 6;
+
+      for (let i = 0; i < startOffset; i++) {
+        const emptyCell = document.createElement('div');
+        emptyCell.className = 'cal-cell other-month';
+        grid.appendChild(emptyCell);
+      }
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+        const cell = document.createElement('div');
+        cell.className = 'cal-cell';
+        if (dateStr === selectedCalDate) cell.classList.add('selected');
+
+        const dObj = new Date(year, month, day);
+        const isWeekend = (dObj.getDay() === 0 || dObj.getDay() === 6);
+        const isHkHoliday = !!HK_HOLIDAYS[dateStr];
+
+        if (isHkHoliday) cell.classList.add('hk-holiday');
+
+        // Check availability overlap
+        const dayAvail = appData.availability[dateStr] || {};
+        const availableMemberCount = Object.keys(dayAvail).length;
+        if (availableMemberCount >= 3) cell.classList.add('has-overlap');
+        if (availableMemberCount >= appData.members.length && appData.members.length > 0) {
+          cell.classList.add('full-band');
+        }
+
+        let innerHTML = `<div class="date-num">${day}</div>`;
+        
+        if (isHkHoliday) {
+          innerHTML += `<div class="hk-tag">🇭🇰 ${HK_HOLIDAYS[dateStr]}</div>`;
+        } else if (availableMemberCount >= appData.members.length && appData.members.length > 0) {
+          innerHTML += `<div style="font-size:0.6rem;">👑 Full Band</div>`;
+        }
+
+        // Show plate indicator
+        const dayShow = appData.shows.find(s => s.date === dateStr);
+        if (dayShow) {
+          const isConfirmed = dayShow.status === 'CONFIRMED';
+          innerHTML += `<div class="gold-show-plate ${isConfirmed ? 'confirmed' : 'tbc'}">🎷 ${dayShow.venue}</div>`;
+        }
+
+        cell.innerHTML = innerHTML;
+        cell.onclick = () => selectCalendarDate(dateStr);
+        grid.appendChild(cell);
+      }
+
+      renderDayDetails(selectedCalDate);
+      renderBestSlots();
+    }
+
+    function changeMonth(delta) {
+      currentDate.setMonth(currentDate.getMonth() + delta);
+      renderCalendar();
+    }
+
+    function selectCalendarDate(dateStr) {
+      selectedCalDate = dateStr;
+      renderCalendar();
+    }
+
+    /* Render Slot Chips for Selected Day */
+    function renderDayDetails(dateStr) {
+      document.getElementById('selectedDateLabel').textContent = `📅 ${dateStr}`;
+      const holidayTag = document.getElementById('holidayTagLabel');
+      
+      const dObj = new Date(dateStr);
+      const isWeekend = (dObj.getDay() === 0 || dObj.getDay() === 6);
+      const isHkHoliday = !!HK_HOLIDAYS[dateStr];
+
+      if (isHkHoliday) {
+        holidayTag.innerHTML = `<span class="hk-tag" style="font-size:0.8rem; padding:3px 6px;">🇭🇰 ${HK_HOLIDAYS[dateStr]} (Full Day Unlocked)</span>`;
+      } else {
+        holidayTag.innerHTML = isWeekend ? `<span style="color:var(--c-skyblue); font-size:0.8rem;">Weekend (Full Day)</span>` : `<span style="color:var(--c-orange); font-size:0.8rem;">Weekday (19:00+)</span>`;
+      }
+
+      const grid = document.getElementById('slotsChipGrid');
+      grid.innerHTML = '';
+
+      // Determine available hours
+      let hours = [];
+      if (isWeekend || isHkHoliday) {
+        for (let h = 8; h <= 23; h++) hours.push(h);
+      } else {
+        for (let h = 19; h <= 23; h++) hours.push(h);
+      }
+
+      const userAvail = (appData.availability[dateStr] && appData.availability[dateStr][appData.currentUser]) || {};
+
+      hours.forEach(h => {
+        const chip = document.createElement('div');
+        chip.className = 'slot-chip';
+        const status = userAvail[h];
+
+        if (status) chip.classList.add('selected-green');
+
+        chip.innerHTML = `${String(h).padStart(2,'0')}:00 ${status ? '✓' : '+'}`;
+        chip.onclick = () => toggleHourSlot(dateStr, h);
+        grid.appendChild(chip);
+      });
+
+      // Load Agenda
+      document.getElementById('sessionAgendaInput').value = appData.agendas[dateStr] || '';
+
+      renderOverlapBars(dateStr, hours);
+    }
+
+    function toggleHourSlot(dateStr, hour) {
+      if (!appData.availability[dateStr]) appData.availability[dateStr] = {};
+      if (!appData.availability[dateStr][appData.currentUser]) appData.availability[dateStr][appData.currentUser] = {};
+
+      const currentStatus = appData.availability[dateStr][appData.currentUser][hour];
+      if (currentStatus) {
+        delete appData.availability[dateStr][appData.currentUser][hour];
+      } else {
+        appData.availability[dateStr][appData.currentUser][hour] = 'FIRM';
+      }
+
+      saveState();
+      renderDayDetails(dateStr);
+    }
+
+    function setSlotStatus(status) {
+      // Sets all selected hours for current user to specified status
+      const userAvail = (appData.availability[selectedCalDate] && appData.availability[selectedCalDate][appData.currentUser]) || {};
+      Object.keys(userAvail).forEach(h => {
+        userAvail[h] = status;
+      });
+      saveState();
+      renderDayDetails(selectedCalDate);
+    }
+
+    function saveSessionAgenda() {
+      appData.agendas[selectedCalDate] = document.getElementById('sessionAgendaInput').value;
+      saveState();
+    }
+
+    function renderOverlapBars(dateStr, hours) {
+      const container = document.getElementById('overlapBars');
+      container.innerHTML = '';
+
+      const dayData = appData.availability[dateStr] || {};
+
+      hours.forEach(h => {
+        const row = document.createElement('div');
+        row.className = 'overlap-hour-row';
+        row.innerHTML = `<div class="overlap-hour-label">${String(h).padStart(2,'0')}:00</div>`;
+
+        const bars = document.createElement('div');
+        bars.className = 'overlap-bars-container';
+
+        appData.members.forEach(m => {
+          const seg = document.createElement('div');
+          seg.className = 'member-bar-segment';
+          seg.style.backgroundColor = m.color;
+
+          const mStatus = dayData[m.id] ? dayData[m.id][h] : null;
+          if (mStatus === 'FIRM') seg.classList.add('firm');
+          if (mStatus === 'TBC') seg.classList.add('tbc');
+          if (mStatus === 'SUBJ') seg.classList.add('subj');
+
+          bars.appendChild(seg);
+        });
+
+        row.appendChild(bars);
+        container.appendChild(row);
+      });
+    }
+
+    function renderBestSlots() {
+      const list = document.getElementById('bestSlotsList');
+      list.innerHTML = 'Top practice times with maximum band overlap:';
+      
+      let ranked = [];
+      Object.keys(appData.availability).forEach(dateStr => {
+        const dayData = appData.availability[dateStr];
+        let totalCount = 0;
+        Object.values(dayData).forEach(mAvail => {
+          totalCount += Object.keys(mAvail).length;
+        });
+        if (totalCount > 0) ranked.push({ dateStr, score: totalCount });
+      });
+
+      ranked.sort((a,b) => b.score - a.score);
+
+      if (ranked.length === 0) {
+        list.innerHTML = `<div style="color:#888; margin-top:6px;">No practice availability entered yet. Tap dates above to add hours!</div>`;
+        return;
+      }
+
+      ranked.slice(0,3).forEach((item, idx) => {
+        const div = document.createElement('div');
+        div.style.padding = '6px 0';
+        div.style.borderBottom = '1px solid #3D2B22';
+        div.innerHTML = `<strong>#${idx+1} ${item.dateStr}</strong> - ${item.score} member-hour slots available`;
+        list.appendChild(div);
+      });
+    }
+
+    /* ==========================================================================
+       MEMBER MANAGEMENT
+       ========================================================================== */
+    function renderMemberPills() {
+      const container = document.getElementById('memberPills');
+      container.innerHTML = '';
+      appData.members.forEach(m => {
+        const pill = document.createElement('div');
+        pill.className = 'member-pill';
+        pill.style.backgroundColor = m.color;
+        pill.innerHTML = `<span>${m.name}</span><span style="font-size:0.7rem; opacity:0.8;">(${m.role})</span>`;
+        container.appendChild(pill);
+      });
+    }
+
+    function openMemberModal() {
+      const list = document.getElementById('memberEditList');
+      list.innerHTML = '';
+      appData.members.forEach((m, i) => {
+        const div = document.createElement('div');
+        div.style.display = 'flex';
+        div.style.gap = '8px';
+        div.style.marginBottom = '8px';
+        div.innerHTML = `
+          <input type="text" class="form-control" value="${m.name}" onchange="appData.members[${i}].name=this.value; saveState();">
+          <input type="text" class="form-control" value="${m.role}" onchange="appData.members[${i}].role=this.value; saveState();">
+          <button class="btn btn-outline" onclick="removeMember(${i})">🗑️</button>
+        `;
+        list.appendChild(div);
+      });
+      document.getElementById('memberModal').classList.add('active');
+    }
+
+    function addMember() {
+      const name = document.getElementById('newMemberName').value;
+      const role = document.getElementById('newMemberRole').value;
+      if (!name) return;
+      const colors = ['#E04A1D','#1C3F80','#7F8752','#A3CFE5','#FF2A75','#D4AF37'];
+      appData.members.push({
+        id: 'm' + Date.now(),
+        name, role,
+        color: colors[appData.members.length % colors.length]
+      });
+      saveState();
+      populateUserDropdown();
+      renderMemberPills();
+      openMemberModal();
+    }
+
+    function removeMember(idx) {
+      appData.members.splice(idx, 1);
+      saveState();
+      populateUserDropdown();
+      renderMemberPills();
+      openMemberModal();
+    }
+
+    /* ==========================================================================
+       SHOWS & GIG TRACKING
+       ========================================================================== */
+    function openShowModal() {
+      document.getElementById('showModal').classList.add('active');
+    }
+
+    function saveShow() {
+      const venue = document.getElementById('showVenue').value;
+      const date = document.getElementById('showDate').value;
+      if (!venue || !date) return alert('Venue and Date required');
+
+      appData.shows.push({
+        id: 's' + Date.now(),
+        venue,
+        city: document.getElementById('showCity').value,
+        date,
+        time: document.getElementById('showTime').value,
+        soundcheck: document.getElementById('showSoundcheck').value,
+        fee: document.getElementById('showFee').value,
+        travelCovered: document.getElementById('showTravelCovered').value,
+        travelAmount: document.getElementById('showTravelAmount').value,
+        status: document.getElementById('showStatus').value
+      });
+
+      saveState();
+      closeModal('showModal');
+      renderShows();
+      renderCalendar();
+    }
+
+    function renderShows() {
+      const list = document.getElementById('showsList');
+      list.innerHTML = '';
+      appData.shows.sort((a,b) => new Date(a.date) - new Date(b.date));
+
+      if (appData.shows.length === 0) {
+        list.innerHTML = `<div style="color:#888;">No upcoming shows added yet.</div>`;
+        return;
+      }
+
+      appData.shows.forEach((s, idx) => {
+        const card = document.createElement('div');
+        card.className = 'project-card';
+        card.style.borderColor = s.status === 'CONFIRMED' ? 'var(--c-gold)' : '#553C30';
+        card.innerHTML = `
+          <div class="project-header">
+            <div class="project-title">🎺 ${s.venue} (${s.city})</div>
+            <span class="deadline-badge ${s.status === 'CONFIRMED' ? 'badge-green' : 'badge-yellow'}">${s.status}</span>
+          </div>
+          <div style="font-size:0.85rem; color:var(--c-skyblue); margin-top:4px;">
+            📅 ${s.date} @ ${s.time} | Soundcheck: ${s.soundcheck}
+          </div>
+          <div style="font-size:0.8rem; margin-top:4px;">
+            💰 Fee: ${s.fee ? '$' + s.fee : 'TBD'} | 🚗 Travel Covered: ${s.travelCovered} (${s.travelAmount ? '$'+s.travelAmount : '$0'})
+          </div>
+          <button class="btn btn-outline" style="font-size:0.75rem; padding:2px 6px; margin-top:8px;" onclick="deleteShow(${idx})">🗑️ Delete</button>
+        `;
+        list.appendChild(card);
+      });
+    }
+
+    function deleteShow(idx) {
+      appData.shows.splice(idx, 1);
+      saveState();
+      renderShows();
+      renderCalendar();
+    }
+
+    function updateCountdownBanner() {
+      const banner = document.getElementById('countdownBanner');
+      const now = new Date();
+      const upcoming = appData.shows
+        .map(s => ({ ...s, dObj: new Date(s.date) }))
+        .filter(s => s.dObj >= now)
+        .sort((a,b) => a.dObj - b.dObj);
+
+      if (upcoming.length === 0) {
+        banner.innerHTML = `🎷 Lazy Tacos - No upcoming shows booked`;
+      } else {
+        const next = upcoming[0];
+        const diffDays = Math.ceil((next.dObj - now) / (1000 * 60 * 60 * 24));
+        banner.innerHTML = `🎺 Next Show in ${diffDays} day(s): <strong>${next.venue}</strong> (${next.date})`;
+      }
+    }
+
+    /* ==========================================================================
+       BAND PROJECTS & PERSONAL SECTION
+       ========================================================================== */
+    function renderBandProjects() {
+      const list = document.getElementById('bandProjectsList');
+      list.innerHTML = '<div style="color:#888;">No active band projects.</div>';
+    }
+
+    function switchPersonalSubTab(type) {
+      document.getElementById('toggleGoalBtn').classList.toggle('active', type === 'GOALS');
+      document.getElementById('toggleTodoBtn').classList.toggle('active', type === 'TODOS');
+      document.getElementById('personalGoalsSection').style.display = type === 'GOALS' ? 'block' : 'none';
+      document.getElementById('personalTodosSection').style.display = type === 'TODOS' ? 'block' : 'none';
+    }
+
+    function renderPersonalSection() {
+      const list = document.getElementById('quickTodosList');
+      list.innerHTML = '';
+      appData.quickTodos.forEach((td, i) => {
+        const div = document.createElement('div');
+        div.style.padding = '6px 0';
+        div.style.borderBottom = '1px solid #38251B';
+        div.innerHTML = `• ${td} <button class="btn btn-outline" style="font-size:0.6rem; padding:1px 4px; float:right;" onclick="appData.quickTodos.splice(${i},1); saveState(); renderPersonalSection();">✕</button>`;
+        list.appendChild(div);
+      });
+    }
+
+    function addQuickTodo() {
+      const val = document.getElementById('quickTodoInput').value;
+      if (!val) return;
+      appData.quickTodos.push(val);
+      document.getElementById('quickTodoInput').value = '';
+      saveState();
+      renderPersonalSection();
+    }
+
+    /* ==========================================================================
+       THREADS & REPLIES
+       ========================================================================== */
+    function selectPlatform(el, plat) {
+      document.querySelectorAll('#platformPicker .hashtag-chip').forEach(c => c.classList.remove('selected'));
+      el.classList.add('selected');
+      selectedPlatform = plat;
+    }
+
+    function addFollowupThread() {
+      const party = document.getElementById('todoPartyInput').value;
+      const remark = document.getElementById('todoRemarkInput').value;
+      if (!party) return alert('Party name required');
+
+      appData.threads.push({
+        id: 't' + Date.now(),
+        platform: selectedPlatform,
+        party,
+        logs: [{ date: new Date().toLocaleDateString(), text: remark }]
+      });
+
+      saveState();
+      renderThreads();
+    }
+
+    function renderThreads() {
+      const list = document.getElementById('followupThreadsList');
+      list.innerHTML = '';
+      appData.threads.forEach((t, idx) => {
+        const div = document.createElement('div');
+        div.className = 'project-card';
+        div.innerHTML = `
+          <div class="project-header">
+            <div class="project-title">${t.platform === 'WhatsApp' ? '💬' : '📧'} ${t.party}</div>
+            <button class="btn btn-outline" style="font-size:0.6rem;" onclick="appData.threads.splice(${idx},1); saveState(); renderThreads();">Delete</button>
+          </div>
+          <div class="thread-box">
+            ${t.logs.map(l => `<div class="thread-entry"><span class="thread-time">${l.date}:</span>${l.text}</div>`).join('')}
+          </div>
+        `;
+        list.appendChild(div);
+      });
+    }
+
+    /* ==========================================================================
+       UTILITIES & FIREBASE SETUP
+       ========================================================================== */
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('active');
+    }
+
+    function formatDate(d) {
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+
+    function configureFirebase() {
+      alert('To enable Live Sync across all members, connect your free Firebase project API key in the code!');
+    }
+  </script>
+</body>
+</html>
